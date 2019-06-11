@@ -18,10 +18,10 @@ DHT dht(D2, DHTTYPE);
 
 // You should get Auth Token in the Blynk App.
 // Go to the Project Settings (nut icon).
-char auth[] = "fb10c09799da4727b7fd0e4756040119";  // Put your Auth Token here. (see Step 3 above)
+char auth[] = "yourkeyhere";  // Put your Auth Token here. (see Step 3 above)
 
 char ssid[] = "T-Mobile Broadband 81";  // Note: This uses radio "81" on Array Gateway Two
-char pass[] = "Rivadog17"; // SSV
+char pass[] = "xxx"; // SSV
 
 unsigned char buf[LENG];  
 char floatString[15];
