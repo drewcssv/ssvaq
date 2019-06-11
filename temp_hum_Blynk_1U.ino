@@ -16,10 +16,10 @@
 #define LENG 31  //0x42 + 31 bytes equal to 32 bytes  
 DHT dht(D2, DHTTYPE);
 
-char auth[] = "6b7534b767b940db897c401f8064ab2c";  // Put your Auth Token here. (see Step 3 above)
+char auth[] = "xxx";  // Put your Auth Token here. (see Step 3 above)
 
 char ssid[] = "T-Mobile Broadband 10";  // SSV Radio on Gateway Two array
-char pass[] = "Rivadog17"; // SSV
+char pass[] = "yyy"; // SSV
 
 unsigned char buf[LENG];  
 char floatString[15];
