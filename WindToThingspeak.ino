@@ -11,10 +11,10 @@ static const uint32_t WINDBaud = 4800; // for the NASA wind sensor
  
 // replace your wifi username and password
 const char* ssid     = "T-Mobile Broadband 10"; // or "10" on the other array
-const char* password = "Rivadog17"; //SSV password
+const char* password = "xxx"; //SSV password
  
 unsigned long myChannelNumber = 746995; //  "Replace it with your thingspeak channel number"
-const char * myWriteAPIKey = "M2SVMEMR9B47NGIW"; // write API key
+const char * myWriteAPIKey = "write_api_key"; // write API key
  
 WiFiClient  client; // start ESP WiFi client
  
