@@ -208,7 +208,7 @@ var heatMapData = [
      heatmap = new google.maps.visualization.HeatmapLayer({
      data: heatMapData,
      dissipating: false,
-     radius: 10
+     radius: 30
 });
     heatmap.setMap(map);
       
@@ -392,14 +392,14 @@ document.getElementById('time').innerHTML = n + ' ' + time;
 	        // Determine what type of sensor to load content for
          
 	        if (markers[i][0]=='Wind') {
-		 	      winContent = infoWindowContent[i][0] + ' Wind Direction: ' + windDir + ', Wind Speed: ' + windSpeed; } // wind data
+		 	      winContent = today + infoWindowContent[i][0] + ' Wind Direction: ' + windDir + ', Wind Speed: ' + windSpeed; } // wind data
 		      else if (markers[i][0] == 'Gateway One' ){
-			      winContent = infoWindowContent[i][0] + ' Current Vaisala Data: ' + vasMeasureOne ;  // Vaisala
+			      winContent = today + infoWindowContent[i][0] + ' Current Vaisala Data: ' + vasMeasureOne ;  // Vaisala
 			    }
           else if  (markers[i][0] == 'Gateway Two') {
-            winContent = infoWindowContent[i][0] + ' Current Vaisala Data: ' + vasMeasureTwo ;  // Vaisala 
+            winContent = today + infoWindowContent[i][0] + ' Current Vaisala Data: ' + vasMeasureTwo ;  // Vaisala 
           }
-			   else { winContent = infoWindowContent[i][0] + ' PM2.5: ' + pm25[i]; // must be a PA
+			   else { winContent = today + infoWindowContent[i][0] + ' PM2.5: ' + pm25[i]; // must be a PA
           }	    
          infoWindow.setContent(winContent); // load infowindow content
             
@@ -414,7 +414,7 @@ document.getElementById('time').innerHTML = n + ' ' + time;
 
 // Override our map zoom level once our fitBounds function runs (Make sure it only runs once)
 var boundsListener = google.maps.event.addListener((map), 'bounds_changed', function(event) {
-    this.setZoom(16);
+    this.setZoom(15);
     google.maps.event.removeListener(boundsListener);
 });
  
@@ -430,10 +430,12 @@ var boundsListener = google.maps.event.addListener((map), 'bounds_changed', func
       <div id='time'></div>
     </div>
     <div id="floating-panel">
-      <button onclick="toggleHeatmap()">Toggle Heatmap</button>
+      <button onclick="toggleHeatmap()">Toggle AQ Heatmap</button>
       <button onclick="changeGradient()">Change gradient</button>
       <button onclick="changeRadius()">Change radius</button>
       <button onclick="changeOpacity()">Change opacity</button>
+      <button onclick="getHelp()">Help</button>
+      <h5>SSV AQView V0.2</h5>
     </div>
   </body>
 </html>
