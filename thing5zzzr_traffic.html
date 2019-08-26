@@ -143,7 +143,11 @@
     function toggleHeatmap() {
         heatmap.setMap(heatmap.getMap() ? null : map);
       }
-
+    function toggleTraffic() {
+         var trafficLayer = new google.maps.TrafficLayer(); // how cool is this?
+         trafficLayer.setMap(trafficLayer.getMap() ? null : map);
+      }
+     
       function changeGradient() {
         var gradient = [
           'rgba(0, 255, 255, 0)',
@@ -213,9 +217,9 @@ var heatMapData = [
     heatmap.setMap(map);
       
     // Display live traffic layer
-    
-     var trafficLayer = new google.maps.TrafficLayer(); // how cool is this?
-     trafficLayer.setMap(map);
+    //
+    // var trafficLayer = new google.maps.TrafficLayer(); // how cool is this?
+    // trafficLayer.setMap(map);
       
      // display SSV Logo bottom right corner
       var imageBounds = {
@@ -434,7 +438,7 @@ var boundsListener = google.maps.event.addListener((map), 'bounds_changed', func
       <button onclick="changeGradient()">Change gradient</button>
       <button onclick="changeRadius()">Change radius</button>
       <button onclick="changeOpacity()">Change opacity</button>
-      <button onclick="getHelp()">Help</button>
+      <button onclick="toggleTraffic()">Toggle Traffic</button>
       <h5>SSV AQView V0.2</h5>
     </div>
   </body>
