@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>SSV Air Quality Sensor Network Monitor V0.5</title>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <style>
+      /* Always set the map height explicitly to define the size of the div
+       * element that contains the map. */
+      #map_wrapper {
+        height: 100%;
+      }
+      #map_canvas {
+	      width: 100%;
+	      height: 100%;
+      }
+      /* Optional: Makes the sample page fill the window. */
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #floating-panel {
+        position: absolute;
+        top: 10px;
+        left: 25%;
+        z-index: 5;
+        background-color: #fff;
+        padding: 5px;
+        border: 1px solid #999;
+        text-align: center;
+        font-family: 'Roboto','sans-serif';
+        line-height: 30px;
+        padding-left: 10px;
+      }
+      #floating-panel {
+        background-color: #fff;
+        border: 1px solid #999;
+        left: 25%;
+        padding: 5px;
+        position: absolute;
+        top: 10px;
+        z-index: 5;
+      }
+    </style>
+    <script type="application/json" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2SFEOVnPWp-flyqN6cWiMVJTz5wSn3SI"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+    
+    <script>
+/* Script to place markers at sensor locations and provide query to monitor sensor status and check current readings */	    
+/* Array to hold names and locations of SSV sensors here */
+/* Format: Sensor Name, Lat     Lon      Channel ID      Fields                 JSON API + Read API Key          Location */
+    var markers = [
+        ['SSV 1U', 37.471231, -122.143965, '717187', '/fields/2/','last.json?','api_key=JUSO8X9B2HPRSD82', 'St Francis Church'], 
+        ['SSV 1D', 37.468855, -122.141067, '748775', '/fields/2/','last.json?','api_key=YLG6TNC9653D25C5', 'Firehouse'], 
+        ['SSV 2U', 37.469505, -122.141069, '720433', '/fields/2/','last.json?','api_key=CCP02S8KPW8A6BDI', 'TBA'], // TBA
+        ['SSV 2D', 37.471531, -122.143465, '720494', '/fields/2/','last.json?','api_key=2CIBUSHB2HXNEYG7', 'St Francis Church'], 
+        ['SSV 3U', 37.468445, -122.141567, '720490', '/fields/2/','last.json?','api_key=VKGZA4NVWT0P7YGO', 'Firehouse'], 
+        ['SSV 3D', 37.465573, -122.142580, '720474', '/fields/2/','last.json?','api_key=2RM81BU5D5GFIV7A', 'YMCA'], 
+        ['Wind',   37.471931, -122.143965, '746995', '/fields/2/','last.json?','api_key=UMAB0WDOREZ8GOP2', 'St Francis Church'],  //  WindSensor
+        ['Gateway One', 37.468445, -122.141067, 'P4930191', '281e0e5d89bc4922983a8a47e9879c7a', 'Firehouse'],//Gateway One:Viasala,SSV 3U & 1D
+        ['Gateway Two', 37.471531, -122.143965, 'P4930192', '3fe4f1635a014aaba45a178b33d30307', 'St Francis Church'],//Gateway Two:Viasala,SSV 1U & 2D
+              ];
+ /* Format: Source Name                     Lat     Lon      CO2    NOx   SOx       */  
+    var pollution_sources = [
+        ['SRI International Cogen Project', 37.458,-122.176, 24509, 18.6, 0.1],
+        ['United Airlines, Inc. - San Francisco Maintenance Center', 37.635, -122.399, 26990, 44.5, 0.8],
+        ['Genentech Inc South San Francisco', 37.655, -122.381, 31057, 0.1, 0],
+        ['Ameresco Half Moon Bay', 37.507, -122.408, 44825,3.8, 0.5],
+        ['San Francisco International Airport (SFO)',15405, 0,0],
+        ['City of Palo Alto Water Quality Control Treatment Plant', 37.458, -122.11, 22715, 25.5, 4.1],
+             ];
+
+              
+      var j_endPhrase1='/fields/2/';
+      var j_endPhrase2 ='last_data_age.json?';
+               
+      var pm25=[0,0,0,0,0,0,0,0,0]; // Array to hold PM values
+      var pm25_nodata_time=[0,0,0,0,0,0,0,0,0] ;// array to hold no data received values
+      var pmMaxTime = 30;
+      var wndMaxTime = 30; 
+      var wind=[0,0,0,0,0,0,0,0];
+      var windDir=0, windSpeed=0; // Wind Direction (0-360) and Wind Speed (Kn)
+      var vasMeasureOne = 0;
+      var vasMeasureTwo = 0;
+      var wind_nodata_time=[0,0,0,0,0,0,0,0,0];
+      
+     // var map = "";
+     
+        
+      // Build Info Window Content  Keep parallel with above marker list 
+     var infoWindowContent = [
+    // 1U   
+    ['<div class="info_content">' +
+    '<h3>' + markers[0][0] +'</h3>' +
+    '<p>Purple Air sensor ' + markers[0][0] + ' is located at the ' + markers[0][7] + '.</p>' + '</div>'],
+    // 1D
+    ['<div class="info_content">' +
+    '<h3>' + markers[1][0]+ '</h3>' +
+    '<p>Purple Air sensor ' + markers[1][0] + ' is located at the ' + markers[1][7] + '.</p>' +
+    '</div>'],
+    // 2U
+    ['<div class="info_content">' +
+    '<h3>' + markers[2][0] + '</h3>' +
+    '<p>Purple Air sensor ' + markers[2][0] + ' is located at the ' + markers[2][7] + '</p>' +
+    '</div>'],
+    // 2D 
+    ['<div class="info_content">' +
+    '<h3>' + markers[3][0] + '</h3>' +
+    '<p>Purple Air sensor ' + markers[3][0] + ' is located at the ' + markers[3][7] + '</p>' +
+    '</div>'],  
+    // 3U
+    ['<div class="info_content">' +
+    '<h3>' + markers[4][0] + '</h3>' +
+    '<p>Purple Air sensor ' + markers[4][0] + ' is located at the ' + markers[4][7] + '</p>' +
+    '</div>'],
+    // 3D      
+    ['<div class="info_content">' +
+    '<h3>' + markers[5][0] + '</h3>' +
+    '<p>Purple Air sensor ' + markers[5][0] + ' is located at the ' + markers[5][7] + '</p>' +
+    '</div>'],
+    // Wind
+    ['<div class="info_content">' +
+    '<h3>' + markers[6][0] + '</h3>' +
+    '<p>' + markers[6][0] + ' is located at the ' + markers[6][7] + '</p>' +
+    '</div>'],
+    // Gateway One
+     ['<div class="info_content">' +
+    '<h3>' + markers[7][0] + '</h3>' +
+    '<p>' + markers[7][0] + ' is the upwind sensor array that features one Vasaila and two Purple Air sensors, located at the ' +  markers[7][5] + '</p></div>'],
+    // Gateway Two
+    ['<div class="info_content">' +
+    '<h3>' + markers[8][0] + '</h3>' +
+    '<p>' + markers[8][0] + ' is the downwind sensor array that features one Vasaila and two Purple Air sensors, located at the ' +  markers[8][5]  + '</p></div>']
+  
+    
+   ]; //infowindow content array
+   
+    jQuery(function($) {
+   // Asynchronously Load the map API
+     var script = document.createElement('script');
+     script.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyB2SFEOVnPWp-flyqN6cWiMVJTz5wSn3SI&libraries=visualization&callback=initialize";
+     document.body.appendChild(script);
+     //getSensor();
+    });
+    
+
+    var myTimer = setInterval(initialize, 120000); //refresh markers (and get fresh data) every 120 seconds 
+    var map, heatmap, trafficLayer, pollutionLayer;
+    
+    
+    function toggleHeatmap() {
+        heatmap.setMap(heatmap.getMap() ? null : map);
+      }
+   // function toggleGTraffic() {
+    //     var trafficLayer = new google.maps.TrafficLayer(); // how cool is this?
+    //     trafficLayer.setMap(trafficLayer.getMap() ? null : map);
+    //  }
+ 
+    function toggleGTraffic() {
+      trafficLayer = new google.maps.TrafficLayer(); // how cool is this?   
+      if (trafficLayer.getMap() == null) {
+     //traffic layer is disabled.. enable it
+        console.log('disabled..enable it');
+        console.log(trafficLayer.getMap());
+        trafficLayer.setMap(map);
+       } else {
+      //traffic layer is enabled.. disable it
+        console.log('enabled...disable it');
+        trafficLayer.setMap(null);
+      }
+    }
+    
+    function togglePollutionSources() {
+       // display geojson file from tomtom
+       var pLayer = new google.maps.Data();
+       pLayer.loadGeoJson(
+      'https://drewcssv.github.io/ssvaq/carbsources.geojson'); // get latest CARB GeoJSON file from Github
+       pLayer.setMap(pLayer.getMap() ? null : map);
+      //pLayer.setMap(map);
+     }
+      
+      
+      function changeGradient() {
+        var gradient = [
+          'rgba(0, 255, 255, 0)',
+          'rgba(0, 255, 255, 1)',
+          'rgba(0, 191, 255, 1)',
+          'rgba(0, 127, 255, 1)',
+          'rgba(0, 63, 255, 1)',
+          'rgba(0, 0, 255, 1)',
+          'rgba(0, 0, 223, 1)',
+          'rgba(0, 0, 191, 1)',
+          'rgba(0, 0, 159, 1)',
+          'rgba(0, 0, 127, 1)',
+          'rgba(63, 0, 91, 1)',
+          'rgba(127, 0, 63, 1)',
+          'rgba(191, 0, 31, 1)',
+          'rgba(255, 0, 0, 1)'
+        ]
+        heatmap.set('gradient', heatmap.get('gradient') ? null : gradient);
+      }
+
+      function changeRadius() {
+        heatmap.set('radius', heatmap.get('radius') ? null : 10);
+      }
+
+      function changeOpacity() {
+        heatmap.set('opacity', heatmap.get('opacity') ? null : 0.2);
+      }
+    
+    function initialize() {
+   // var map;
+    var bounds = new google.maps.LatLngBounds();
+    var mapOptions = {
+     mapTypeId: 'roadmap',
+     center: new google.maps.LatLng(37.465573, -122.142580)
+    };
+    
+    
+            /* Data points defined as a mixture of WeightedLocation and LatLng objects */
+var heatMapData = [
+  {location: new google.maps.LatLng(37.471, -122.143), weight: 10}, // church 
+  {location: new google.maps.LatLng(37.468, -122.141), weight: 6}, // firehouse
+  {location: new google.maps.LatLng(37.465, -122.142), weight: 2.6}, // YMCA
+  new google.maps.LatLng(37.471, -122.143), // church
+  {location: new google.maps.LatLng(37.471, -122.143), weight: 10}, // church 
+  {location: new google.maps.LatLng(37.468, -122.141), weight: 6}, // firehouse
+  {location: new google.maps.LatLng(37.465, -122.142), weight: 2.6}, // YMCA
+  new google.maps.LatLng(37.471, -122.143), // church
+  {location: new google.maps.LatLng(37.471, -122.143), weight: 10}, // church 
+  {location: new google.maps.LatLng(37.468, -122.141), weight: 6}, // firehouse
+  {location: new google.maps.LatLng(37.465, -122.142), weight: 2.6}, // YMCA
+  new google.maps.LatLng(37.471, -122.143), // church
+  {location: new google.maps.LatLng(37.471, -122.143), weight: 10}, // church 
+  {location: new google.maps.LatLng(37.468, -122.141), weight: 6}, // firehouse
+  {location: new google.maps.LatLng(37.465, -122.142), weight: 2.6} // YMCA
+];
+
+// Display a map on the page
+   map = new google.maps.Map(document.getElementById("map_canvas"), mapOptions);
+   map.setTilt(45);
+      
+  // Display AQ sensor Heatmap
+  //var heatArray = new google.maps.MVCArray(heatMapData);
+     heatmap = new google.maps.visualization.HeatmapLayer({
+     data: heatMapData,
+     dissipating: true,
+     radius: 20
+});
+    heatmap.setMap(map);
+      
+      
+      
+    // Display live traffic layer
+    //
+    // var trafficLayer = new google.maps.TrafficLayer(); // how cool is this?
+    // trafficLayer.setMap(map);
+    
+      
+     // display SSV Logo bottom right corner
+      var imageBounds = {
+      north: 37.465614,
+      south: 37.464286,
+      east: -122.131685,
+      west: -122.132825
+      };
+
+      historicalOverlay = new google.maps.GroundOverlay(
+        'https://greenbiztracker.org/business/view-file?fileHash=7efa1639b05ff2ca7f900539d3195b9c', // fetch SSV logo
+        imageBounds);
+      historicalOverlay.setMap(map);
+      
+      // get a new date (locale machine date time)
+var date = new Date();
+// get the date as a string
+var n = date.toDateString();
+// get the time as a string
+var time = date.toLocaleTimeString();
+
+// find the html element with the id of time
+// set the innerHTML of that element to the date a space the time
+document.getElementById('time').innerHTML = n + ' ' + time;
+             
+      // Display multiple markers on a map
+      var infoWindow = new google.maps.InfoWindow(), marker, i;
+      
+    // get some marker icons...  
+     var bf_image = 'https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png';
+     var g_image = 'https://maps.gstatic.com/mapfiles/ms2/micons/green.png';
+     var bl_image = 'https://maps.gstatic.com/mapfiles/ms2/micons/blue.png';
+     var r_image = 'https://maps.gstatic.com/mapfiles/ms2/micons/red.png';
+     var winContent;
+   // get today's date & time
+     let today = new Date().toISOString().slice(0,-5); // slice off milliseconds
+     var diff = -30; // collect data from last 30 minutes
+     var startDateObj = new Date(); 
+     var endDateObj = new Date(startDateObj.getTime() + diff*60000).toISOString().slice(0,-5); // format for Beacon API
+    // console.log("start: " + today); console.log("end: " + endDateObj); 
+      
+// Loop through our array of markers & place each one on the map  
+    for (i = 0; i < markers.length; i++) {  // loop through all sensors/locations and place markers
+            var position = new google.maps.LatLng(markers[i][1], markers[i][2]);
+            bounds.extend(position);
+         //   console.log('Time ' + pm25_nodata_time[i]); console.log('wTime ' + wind_nodata_time[i]);
+            marker = new google.maps.Marker({
+              position: position,
+              draggable: true,
+              label: {
+                text: markers[i][0]
+              },
+             // set marker color
+                            
+               // First check for no data received from either PM or Wind sensors...
+               icon: (function() {if(pm25_nodata_time[i] >= pmMaxTime || wind_nodata_time[i] >= wndMaxTime)  { // if no data received ....
+	             
+                 return r_image ; // set red markers
+                 } else  if(markers[i][0] == 'Gateway One' || markers[i][0] == 'Gateway Two'){ // check for Viasala sensors
+                       return bl_image ;// set blue markers
+                   } else  { 
+                       return g_image; // set green marker
+                   }
+                   
+                 })(), // note ',' following function!
+               
+              animation: google.maps.Animation.DROP,
+              
+              map: map,
+              
+              title: (function(){ if(markers[i][0] == 'Gateway One' || markers[i][0] == 'Gateway Two') {
+                   return markers[i][0] + ' at ' + markers[i][5];   
+                      }
+                   else {
+                      return markers[i][0] + ' at ' + markers[i][7]; }
+                
+             })() // function 
+              
+            }),  // marker 
+                
+           // Allow each marker to have an info window    
+          google.maps.event.addListener(marker, 'click', (function(marker, i) {
+          return function() {
+	                 
+       if (i == 7 || i == 8)   // get data from Beacon Cloud in XML 
+        {
+           // get GateWay One data
+           $.ajax({
+               type: "GET",
+              // url: "https://beacon.vaisala.com/api/?d=" + markers[7][3] + "&k=" + markers[7][4] + "&t0=2019-04-01T00:00:00&t1=2019-05-01T00:05:01&c=5",
+               url: "https://beacon.vaisala.com/api/?d=" + markers[7][3] + "&k=" + markers[7][4] + "&t0=" + endDateObj + "&t1=" + today + "&c=5",
+               dataType: "xml",
+               success: function(xml) {
+             
+                var v1= $(xml).find("device").text(); //Gateway One
+                vasMeasureOne= $(xml).find("measurements").text();
+                var mes = $(xml).find("measurements").contents().text();
+                console.log("GW1: " + vasMeasureOne);
+                //console.log("mes-CO: " + vasMeasureOne.find("CO"));
+                
+             // });
+                }
+            });
+           
+           // get GateWay Two data
+           $.ajax({
+               type: "GET",
+              // url: "https://beacon.vaisala.com/api/?d=" + markers[8][3] + "&k=" + markers[8][4] + "&t0=2019-04-01T00:00:00&t1=2019-05-01T00:05:01&c=5",
+               url: "https://beacon.vaisala.com/api/?d=" + markers[8][3] + "&k=" + markers[8][4] + "&t0=" + endDateObj  + "&t1=" + today + "&c=5",
+               dataType: "xml",
+               success: function(xml) {
+              
+                v1= $(xml).find("device").text(); //Gateway One
+                vasMeasureTwo= $(xml).find("measurements").text();
+                console.log("GW2: " + vasMeasureTwo);
+                //console.log(vasMeasureTwo[2]);
+                v3= $(xml).find("meas id").text();
+                v4= $(xml).find("type").text();
+                v5= $(xml).find("value").text();
+               //  console.log(vasMeasure); //console.log(v3); console.log(v4); console.log(v5);
+             // });
+                }
+            });
+        }
+         else  // must be Thingspeak data in JSON
+        { 
+	       // fetch JSON data (PM2.5) from Thingspeak
+           $.getJSON("https://api.thingspeak.com/channels/" + markers[i][3] + markers[i][4] + markers[i][5] + markers[i][6], function(result){
+        	
+            var m = result;
+           // console.log(m);
+            pm25[i] = Number(m.field2); // pm2.5 is in Field 2
+        
+           }); 
+           
+           // fetch JSON "last_data_received" value for PM2.5 sensors
+           $.getJSON("https://api.thingspeak.com/channels/" + markers[i][3] + j_endPhrase1 + j_endPhrase2 + markers[i][6], function(result){
+	           
+	         var me = result;
+            // console.log(me);
+             pm25_nodata_time[i] = Number(me.last_data_age); // time since last data received (seconds)
+             //console.log('time ' + pm25_nodata_time[i]);
+             
+            });
+           
+           // fetch JSON for wind direction ...
+           $.getJSON("https://api.thingspeak.com/channels/746995/fields/2/last.json?location=true", function(success){
+	         
+            var n = success;
+           // console.log(n);
+            windDir = Number(n.field2);
+            
+           }); // ...& velocity from Thingspeak
+           
+            $.getJSON("https://api.thingspeak.com/channels/746995/fields/4/last.json?location=true", function(successx){
+	         
+            var nn = successx;
+           // co nsole.log(nn);
+            windSpeed = Number(nn.field4);
+                     
+           });
+           
+            // fetch JSON "last_data_received" value for Wind sensor
+           $.getJSON("https://api.thingspeak.com/channels/746995/fields/2/last_data_age.json", function(resultt){
+	           
+	         var mee = resultt;
+            // console.log(me);
+             wind_nodata_time[i] = Number(mee.last_data_age); // time since last data received (seconds)
+             //console.log('time ' + wind_nodata_time[i]);
+             
+           });
+        }  
+           
+	        // Determine what type of sensor to load content for
+         
+	        if (markers[i][0]=='Wind') {
+		 	      winContent = today + infoWindowContent[i][0] + ' Wind Direction: ' + windDir + ', Wind Speed: ' + windSpeed; } // wind data
+		      else if (markers[i][0] == 'Gateway One' ){
+			      winContent = today + infoWindowContent[i][0] + ' Current Vaisala Data: ' + vasMeasureOne ;  // Vaisala
+			    }
+          else if  (markers[i][0] == 'Gateway Two') {
+            winContent = today + infoWindowContent[i][0] + ' Current Vaisala Data: ' + vasMeasureTwo ;  // Vaisala 
+          }
+			   else { winContent = today + infoWindowContent[i][0] + ' PM2.5: ' + pm25[i]; // must be a PA
+          }	    
+         infoWindow.setContent(winContent); // load infowindow content
+            
+         infoWindow.open(map, marker); // load markers
+         };
+      })(marker, i));
+
+     // Automatically center the map fitting all markers on the screen
+       map.fitBounds(bounds);
+       
+   } // for loop
+   
+ // Listen for Google Traffic click...   
+   google.maps.event.addDomListener(document.getElementById('trafficToggle'), 'click', toggleGTraffic);
+
+// Override our map zoom level once our fitBounds function runs (Make sure it only runs once)
+var boundsListener = google.maps.event.addListener((map), 'bounds_changed', function(event) {
+    this.setZoom(15);
+    google.maps.event.removeListener(boundsListener);
+});
+ 
+
+}
+
+
+  </script>
+  </head>
+  <body>
+    <div id="map_wrapper">
+	    <div id="map_canvas" class = "mapping"> </div>
+      <div id='time'></div>
+    </div>
+    <div id="floating-panel">
+      <button onclick="toggleHeatmap()">Toggle AQ Heatmap</button>
+      <button onclick="changeGradient()">Change gradient</button>
+      <button onclick="changeRadius()">Change radius</button>
+      <button onclick="changeOpacity()">Change opacity</button>
+      <button id ="trafficToggle">Toggle Google Traffic</button>
+      <button onclick="togglePollutionSources()">Toggle CARB Pollution Sources</button>   
+    </div>
+  </body>
+</html>
