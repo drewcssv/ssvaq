@@ -1,23 +1,5 @@
 [
  {
-   "A": "Device:",
-   "B": "Gateway One",
-   "C": "Location:",
-   "D": "Santa Clara California"
- },
- {
-   "A": "Serial:",
-   "B": "P4930191",
-   "C": "Generated:",
-   "D": "2019-04-01 18:20:06"
- },
- {
-   "A": "Description:",
-   "B": "Sustainable Silicon Valley",
-   "C": "",
-   "D": ""
- },
- {
    "A": "Timestamp",
    "B": "NO2 (ppm)",
    "C": "SO2 (ppm)",
