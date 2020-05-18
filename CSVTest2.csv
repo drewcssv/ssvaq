@@ -1,9 +1,7 @@
-LGA_NAME, Lat, Long, Information
-SSV 1U, 37.471231, -122.143965, St Francis Church
-SSV 1D, 37.468855, -122.141067, Firehouse
-SSV 2U, 37.469505, -122.141069,  TBA
-SSV 2D, 37.471531, -122.143465, St Francis Church
-SV 3U, 37.468445, -122.141567, Firehouse
-SSV 3D, 37.465573, -122.142580,  YMCA
-Gateway One, 37.468445, -122.141067, Firehouse
-Gateway Two, 37.471531, -122.143965, St Francis Church
+'LGA_NAME', 'Lat', 'Long', 'Information'
+'SSV 1U', '37.471231', '-122.143965', 'St Francis Church'
+'SSV 1D', '37.471531', '-122.143465', 'St Francis Church'
+'SV 3U', 37.468445', '-122.141567', 'Firehouse'
+''SSV 3D, 37.465573, -122.142580', 'Firehouse'
+'Gateway One', '37.468445', '-122.141567', 'Firehouse'
+'Gateway Two', '37.471531', '-122.143965', 'St Francis Church'
