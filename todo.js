@@ -32,5 +32,4 @@ var infoWindowContent = [
     ['<div class="info_content">' +
     '<h3>' + markers[4][0] + '</h3>' +
     '<p>Purple Air sensor ' + markers[4][0] + ' is located at  ' + markers[4][7] + '</p>' +
-    '</div>']   
-   ];
+    '</div>']          ];  
