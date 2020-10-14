@@ -6,9 +6,7 @@ var markers = [
         ['BackpAQ 4', 37.875293, -122.541399, '1150280', '/fields/2/','last.json?','api_key=CCP02S8KPW8A6BDI', '811 Smith Road MV'],
         ['BAQ Labs PA', 37.875280, -122.541396, '720433', '/fields/2/','last.json?','api_key=CCP02S8KPW8A6BDI', '811 Smith Rd BackpAQ Labs'] // was SSV 2U
         ];
-
- 
-     var infoWindowContent = [
+var infoWindowContent = [
      
     ['<div class="info_content">' +
     '<h3>' + markers[0][0] +'</h3>' +
