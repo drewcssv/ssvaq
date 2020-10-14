@@ -22,6 +22,7 @@ var infoWindowContent = [
     ['<div class="info_content">' +
     '<h3>' + markers[2][0] + '</h3>' +
     '<p>BackpAQ Monitor ' + markers[2][0] + ' is located at  ' + markers[2][7] + '</p>' +
+    '</div>'],
     
     ['<div class="info_content">' +
     '<h3>' + markers[3][0] + '</h3>' +
@@ -32,4 +33,4 @@ var infoWindowContent = [
     '<h3>' + markers[4][0] + '</h3>' +
     '<p>Purple Air sensor ' + markers[4][0] + ' is located at  ' + markers[4][7] + '</p>' +
     '</div>']   
-   ]; 
+   ];
