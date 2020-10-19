@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>SSV Air Quality Sensor Network Monitor V0.7 (c) 2019, 2020 SSV Labs</title>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <style>
+      /* Always set the map height explicitly to define the size of the div
+       * element that contains the map. */
+      #map_wrapper {
+        height: 100%;
+      }
+      #map_canvas {
+	      width: 100%;
+	      height: 100%;
+      }
+      /* Optional: Makes the sample page fill the window. */
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #floating-panel {
+        position: absolute;
+        top: 10px;
+        left: 25%;
+        z-index: 5;
+        background-color: #fff;
+        padding: 5px;
+        border: 1px solid #999;
+        text-align: center;
+        font-family: 'Roboto','sans-serif';
+        line-height: 30px;
+        padding-left: 10px;
+      }
+      #floating-panel {
+        background-color: #fff;
+        border: 1px solid #999;
+        left: 25%;
+        padding: 5px;
+        position: absolute;
+        top: 10px;
+        z-index: 5;
+      }
+      #info-box {
+        background-color: white;
+        border: 1px solid black;
+        bottom: 30px;
+        height: 20px;
+        padding: 10px;
+        position: absolute;
+        left: 30px;
+      }
+      
+   /* note: Markers[] and infowindowContent[] arrays are imported into this script via the "todo.js" file below*/
+    </style>
+    <script type="application/json" src=https://maps.googleapis.com/maps/api/js?key=AIzaSyC9cwbKnz2iZqFWazHkaqyigA40tSK3s5g"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+    <script type="text/javascript" src="https://drewcssv.github.io/ssvaq/todo.js"></script>
+    <script src="http://code.highcharts.com/stock/highstock.js"></script>
+    <script src="http://code.highcharts.com/stock/modules/exporting.js"></script>
+    <script src="https://github.com/highcharts/export-csv"></script>
+    <script type="text/javascript">
+     
+    var pmCorrection = "";
+    
+    
+ /* Format: Source Name                     Lat     Lon      CO2    NOx   SOx       */  
+    var pollution_sources = [
+        ['SRI International Cogen Project', 37.458,-122.176, 24509, 18.6, 0.1],
+        ['United Airlines, Inc. - San Francisco Maintenance Center', 37.635, -122.399, 26990, 44.5, 0.8],
+        ['Genentech Inc South San Francisco', 37.655, -122.381, 31057, 0.1, 0],
+        ['Ameresco Half Moon Bay', 37.507, -122.408, 44825,3.8, 0.5],
+        ['San Francisco International Airport (SFO)',15405, 0,0],
+        ['City of Palo Alto Water Quality Control Treatment Plant', 37.458, -122.11, 22715, 25.5, 4.1],
+             ];
+
+              
+      var j_endPhrase1='/fields/2/';
+      var j_endPhrase2 ='last_data_age.json?';
+               
+      var pm25=[0,0,0,0,0,0,0,0,0]; // Array to hold PM values
+      var pm25_nodata_time=[0,0,0,0,0,0,0,0,0] ;// array to hold no data received values
+      var pmMaxTime = 30;
+      var wndMaxTime = 30; 
+      var wind=[0,0,0,0,0,0,0,0];
+      var windDir=0, windSpeed=0; // Wind Direction (0-360) and Wind Speed (Kn)
+      var vasMeasureOne = 0;
+      var vasMeasureTwo = 0;
+      var wind_nodata_time=[0,0,0,0,0,0,0,0,0];
+      var airQualityIndex;
+      var aqiMess=["", "", "", "", "", "", "", ""];
+      var AQI;
+      var kmlLayer;
+      
+      var dynamicChart;
+      var channelsLoaded = 0;
+      
+      var channelKeys =[];
+        channelKeys.push({channelNumber:1059654, name:'BackpAQ 1',key:'DZ07N6EQQM0GEUPE',
+        fieldList:[{field:1,axis:'O'},{field:2,axis:'O'},{field:3,axis:'O'},{field:4,axis:'O'},{field:5,axis:'O'},{field:6,axis:'T'},{field:7,axis:'H'},{field:8,axis:'O'}]});
+        channelKeys.push({channelNumber:1060405, name:'BackpAQ 2',key:'BNY857AMT8UZ8E9X',
+        fieldList:[{field:1,axis:'O'},{field:2,axis:'O'},{field:3,axis:'O'},{field:4,axis:'O'},{field:5,axis:'O'},{field:6,axis:'T'},{field:7,axis:'H'},{field:8,axis:'O'}]});
+        channelKeys.push({channelNumber:1150280, name:'BackpAQ 3',key:'BMP7BLV51DNQCHQC',
+        fieldList:[{field:2,axis:'D'},{field:4,axis:'S'}]});
+      
+     // var map = "";
+  
+   
+    jQuery(function($) {
+   // Asynchronously Load the map API
+     var script = document.createElement('script');
+     script.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyC9cwbKnz2iZqFWazHkaqyigA40tSK3s5g&libraries=visualization&callback=initialize";
+     document.body.appendChild(script);
+     //getSensor();
+    });
+    
+
+ //   var myTimer = setInterval(initialize, 120000); //refresh markers (and get fresh data) every 120 seconds 
+    var map, heatmap, trafficLayer, pollutionLayer;
+    
+    
+    function toggleHeatmap() {
+        heatmap.setMap(heatmap.getMap() ? null : map);
+      }
+   // function toggleGTraffic() {
+    //     var trafficLayer = new google.maps.TrafficLayer(); // how cool is this?
+    //     trafficLayer.setMap(trafficLayer.getMap() ? null : map);
+    //  }
+ 
+    function toggleGTraffic() {
+      trafficLayer = new google.maps.TrafficLayer(); // how cool is this?   
+      if (trafficLayer.getMap() == null) {
+     //traffic layer is disabled.. enable it
+        console.log('disabled..enable it');
+        console.log(trafficLayer.getMap());
+        trafficLayer.setMap(map);
+       } else {
+      //traffic layer is enabled.. disable it
+        console.log('enabled...disable it');
+        trafficLayer.setMap(null);
+      }
+    }
+   // display today's track data from airnow     
+    function displayKML(){
+   //  var map = new google.maps.Map(document.getElementById('map'), {
+     //   zoom: 11,
+      //    center: {lat: 38.4567, long: -122.8743}
+  //   });
+      var infowindow1 = new google.maps.InfoWindow();
+       ctaLayer = new google.maps.KmlLayer({
+          url: 'https://github.com/drewcssv/ssvaq/blob/master/feeds-10.kml?raw=true'
+        });
+              
+        ctaLayer.setMap(map);
+        ctaLayer.addListener('click', function(event) {
+    	  var myHTML = event.feature.getProperty("Facility");
+	      infowindow1.setContent("<div style='width:150px;'>"+myHTML+"</div>");
+	    // position the infowindow on the marker
+	      infowindow1.setPosition(event.feature.getGeometry().get());
+    	// anchor the infowindow on the marker
+	      infowindow1.setOptions({pixelOffset: new google.maps.Size(0,-30)});
+	      infowindow1.open(map);
+      });
+         
+ } // displayKML
+ 
+// display a user's track file from previous BackpAQ session
+// reads from a .geojson file
+
+    function displayTrack() {
+       // display geojson tracks file
+       var pLayer = new google.maps.Data();
+       var infowindow1 = new google.maps.InfoWindow();
+       
+       pLayer.loadGeoJson(
+       'https://drewcssv.github.io/ssvaq/feeds-15-2.geojson', null,
+       function (feature) {  console.log("loadGeoJson", feature.length); // for each marker...
+        pLayer.setStyle(function(feature) { // set style...
+        return {icon: feature.getProperty("icon")} // color of icon based on embedded AQI in geojson file
+        }); }
+       ); // geojson file from BackpAQ session      
+    
+       pLayer.setMap(pLayer.getMap() ? null : map);       
+        
+       // set some style parameters, including icon color -> AQI    
+       pLayer.setStyle({
+          clickable: true,
+          zIndex: true,
+          visible: true,
+        //  icon: "https://maps.gstatic.com/mapfiles/ms2/micons/green.png",
+          title: "tracks"
+       });             
+        
+    // prepare infowindow content to be display on 'click'
+       pLayer.addListener('click', function(event) {
+      // Parse feature/property data from JSON
+       var trackID = "<b>" + "Track id: " + "</b>" + event.feature.getProperty("entry_id");
+       var dateTime = "<b>" + "Created at: " + "</b>" + event.feature.getProperty("created_at");
+       var pm25 = "<b>" + "PM2.5: " + "</b>" + event.feature.getProperty("PM25");
+       var AQI = "<b>" + "AQI: " + "</b>" + event.feature.getProperty("AQI");
+       var  iconAQI = event.feature.getProperty("icon"); // AQI "color"
+       //console.log(iconAQI);
+       var comments = "<b>" + "Comments: " + "</b>" + event.feature.getProperty("Comments");
+             
+     // define infowindow  
+	     infowindow1.setContent("<div style='width:250px;'>"+ trackID +'<br>'+ '<hr>' + dateTime +'<br>'+ pm25 + '<br>' + AQI + '<br>' + comments + "</div>");
+	     // position the infowindow on the marker
+	     infowindow1.setPosition(event.feature.getGeometry().get());
+      	// anchor the infowindow on the marker
+	     infowindow1.setOptions({pixelOffset: new google.maps.Size(0,-30)});
+	     infowindow1.open(map);
+      });
+  }
+     
+// choose PM correction (if any)
+//  Two “conversions” to adjust PM2.5 concentrations and corresponding AQI values for woodsmoke, an “AQandU” calibration (0.778 * PA + 2.65)
+//  to a long-term University of Utah study in Salt Lake City and an “LRAPA” calibration (0.5 * PA − 0.68) to a Lane Regional Air
+//  Pollution Agency study of PA sensors. 
+// LRAPA = PM_Val_cf1 = 0.5 * PM_Val_cf1 -.68
+// AQandU = PM_Val_cf1 = 0.778 * PM_Val_cf1 + 2.65;
+  function checkRadio(name) {
+    pmCorrection = "None"; // default
+    if (name == "None") {
+        console.log("Choice: ", name);
+        pmCorrection = "None";
+       // initialize();
+        document.getElementById("no-choice").checked = true;
+        document.getElementById("LRAPA-choice").checked = false;
+        document.getElementById("AQandU-choice").checked = false;
+    }
+   else if(name == "LRAPA"){
+    console.log("Choice: ", name);
+        pmCorrection = "LRAPA";
+       // initialize();
+        document.getElementById("no-choice").checked = false;
+        document.getElementById("LRAPA-choice").checked = true;
+        document.getElementById("AQandU-choice").checked = false;
+
+    } else if (name == "AQandU"){
+        console.log("Choice: ", name);
+        pmCorrection = "AQandU";
+       // initialize();
+        document.getElementById("no-choice").checked = false;
+        document.getElementById("AQandU-choice").checked = true;
+        document.getElementById("LRAPA-choice").checked = false;
+    }
+  }
+  
+// functions to calculate API from PM2.5 concentration      
+ //var AQI = aqiFromPM(pm25[i][2]);
+  //var AQIDescription = getAQIDescription(AQI); //A short description of the provided AQI
+//var AQIMessage = getAQIMessage(AQI); // What the provided AQI means (a longer description)
+
+ // And here are the functions:
+ 
+function aqiFromPM(pm) {
+
+      if (isNaN(pm)) return "-"; 
+      if (pm == undefined) return "-";
+      if (pm < 0) return pm; 
+      if (pm > 1000) return "-"; 
+       
+        if (pm > 350.5) {
+          return calcAQI(pm, 500, 401, 500, 350.5);
+        } else if (pm > 250.5) {
+          return calcAQI(pm, 400, 301, 350.4, 250.5);
+        } else if (pm > 150.5) {
+          return calcAQI(pm, 300, 201, 250.4, 150.5);
+        } else if (pm > 55.5) {
+          return calcAQI(pm, 200, 151, 150.4, 55.5);
+        } else if (pm > 35.5) {
+          return calcAQI(pm, 150, 101, 55.4, 35.5);
+        } else if (pm > 12.1) {
+          return calcAQI(pm, 100, 51, 35.4, 12.1);
+        } else if (pm >= 0) {
+          return calcAQI(pm, 50, 0, 12, 0);
+        } else {
+          return undefined;
+        }
+      
+      }
+      function bplFromPM(pm) {
+      if (isNaN(pm)) return 0; 
+      if (pm == undefined) return 0;
+      if (pm < 0) return 0; 
+      
+        if (pm > 350.5) {
+        return 401;
+        } else if (pm > 250.5) {
+        return 301;
+        } else if (pm > 150.5) {
+        return 201;
+        } else if (pm > 55.5) {
+        return 151;
+        } else if (pm > 35.5) {
+        return 101;
+        } else if (pm > 12.1) {
+        return 51;
+        } else if (pm >= 0) {
+        return 0;
+        } else {
+        return 0;
+        }
+      
+      }
+      function bphFromPM(pm) {
+      //return 0;
+      if (isNaN(pm)) return 0; 
+      if (pm == undefined) return 0;
+      if (pm < 0) return 0; 
+        
+        if (pm > 350.5) {
+        return 500;
+        } else if (pm > 250.5) {
+        return 500;
+        } else if (pm > 150.5) {
+        return 300;
+        } else if (pm > 55.5) {
+        return 200;
+        } else if (pm > 35.5) {
+        return 150;
+        } else if (pm > 12.1) {
+        return 100;
+        } else if (pm >= 0) {
+        return 50;
+        } else {
+        return 0;
+        }
+      
+      }
+ 
+      function calcAQI(Cp, Ih, Il, BPh, BPl) {
+      
+        var a = (Ih - Il);
+        var b = (BPh - BPl);
+        var c = (Cp - BPl);
+        return Math.round((a/b) * c + Il);
+      
+      }
+ 
+ 
+      function getAQIDescription(aqi) {
+        if (aqi >= 401) {
+          return 'Hazardous';
+        } else if (aqi >= 301) {
+          return 'Hazardous';
+        } else if (aqi >= 201) {
+          return 'Very Unhealthy';
+        } else if (aqi >= 151) {
+          return 'Unhealthy';
+        } else if (aqi >= 101) {
+          return 'Unhealthy for Sensitive Groups';
+        } else if (aqi >= 51) {
+          return 'Moderate';
+        } else if (aqi >= 0) {
+          return 'Good';
+        } else {
+          return undefined;
+        }
+      }
+      
+      function getAQIIconURL(aqi) {
+   // get some marker icons...  
+   //  var bf_image = 'https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png';
+   //  var g_image = 'https://maps.gstatic.com/mapfiles/ms2/micons/green.png';
+   //  var bl_image = 'https://maps.gstatic.com/mapfiles/ms2/micons/blue.png';
+   //  var r_image = 'https://maps.gstatic.com/mapfiles/ms2/micons/red.png';
+   //  var yel_image = 'http://maps.google.com/mapfiles/kml/paddle/ylw-blank.png';
+   //  var pur_image = 'http://maps.google.com/mapfiles/kml/paddle/purple-blank.png';
+   //  var org_image = 'http://maps.google.com/mapfiles/kml/paddle/orange-blank.png';
+        if (aqi >= 401) {
+          return 'http://maps.google.com/mapfiles/kml/paddle/purple-blank.png';
+        } else if (aqi >= 301) {
+          return 'http://maps.google.com/mapfiles/kml/paddle/purple-blank.png';
+        } else if (aqi >= 201) {
+          return 'http://maps.google.com/mapfiles/kml/paddle/purple-blank.png';
+        } else if (aqi >= 151) {
+          return 'https://maps.gstatic.com/mapfiles/ms2/micons/red.png';
+        } else if (aqi >= 101) {
+          return 'http://maps.google.com/mapfiles/kml/paddle/orange-blank.png';
+        } else if (aqi >= 51) {
+          return 'http://maps.google.com/mapfiles/kml/paddle/ylw-blank.png';
+        } else if (aqi >= 0) {
+          return 'https://maps.gstatic.com/mapfiles/ms2/micons/green.png';
+        } else {
+          return undefined;
+        }
+      }
+ 
+      function getAQIMessage(aqi) {
+        if (aqi >= 401) {
+          return '>401: Health alert: everyone may experience more serious health effects';
+        } else if (aqi >= 301) {
+          return '301-400: Health alert: everyone may experience more serious health effects';
+        } else if (aqi >= 201) {
+          return '201-300: Health warnings of emergency conditions. The entire population is more likely to be affected. ';
+        } else if (aqi >= 151) {
+          return '151-200: Everyone may begin to experience health effects; members of sensitive groups may experience more serious health effects.';
+        } else if (aqi >= 101) {
+          return '101-150: Members of sensitive groups may experience health effects. The general public is not likely to be affected.';
+        } else if (aqi >= 51) {
+          return '51-100: Air quality is acceptable; however, for some pollutants there may be a moderate health concern for a very small number of people who are unusually sensitive to air pollution.';
+        } else if (aqi >= 0) {
+          return '0-50: Air quality is considered satisfactory, and air pollution poses little or no risk';
+        } else {
+          return undefined;
+        }
+     }
+
+
+      
+// Set value, color of AQI gauge on Blynk gauge ////////
+function calcAQIValue() {
+  var gaugeValue = airQualityIndex;
+  var newColor;
+  var newLabel;
+  // assign color according to US AQI standard (modified per https://airnow.gov/index.cfm?action=aqibasics.aqi)
+
+  if (gaugeValue > 300) {
+    newColor = AQI_MAROON;
+    newLabel = "AQI: HAZARDOUS";
+  } else if (gaugeValue > 200) {
+    newColor = AQI_PURPLE;
+    newLabel = "AQI: VERY UNHEALTHY";
+  } else if (gaugeValue > 150) {
+    newColor = AQI_RED;
+    newLabel = "AQI: UNHEALTHY";
+  } else if (gaugeValue > 100) {
+    newColor = AQI_ORANGE;
+    newLabel = "AQI: UNHEALTHY FOR SOME";
+  } else if (gaugeValue > 50) {
+    newColor = AQI_YELLOW;
+    newLabel = "AQI: MODERATE";
+  } else {
+    newColor = AQI_GREEN;  //"Safe"
+    newLabel = "AQI: GOOD";
+  }
+}   
+    function displayPlot() {
+    }
+      function displayTracks() {      
+      }
+    function initialize() {
+   // var map;
+    var bounds = new google.maps.LatLngBounds();
+    var mapOptions = {
+     mapTypeId: 'roadmap',
+     center: new google.maps.LatLng(37.465573, -122.142580)
+    };
+    
+
+// Display a map on the page
+   map = new google.maps.Map(document.getElementById("map_canvas"), mapOptions);
+   map.setTilt(45);
+      
+      
+    // Display live traffic layer
+    //
+    // var trafficLayer = new google.maps.TrafficLayer(); // how cool is this?
+    // trafficLayer.setMap(map);
+    
+      
+     // display SSV Logo bottom right corner
+      var imageBounds = {
+      north: 37.465614,
+      south: 37.464286,
+      east: -122.131685,
+      west: -122.132825
+      };
+
+      historicalOverlay = new google.maps.GroundOverlay(
+        'https://greenbiztracker.org/business/view-file?fileHash=7efa1639b05ff2ca7f900539d3195b9c', // fetch SSV logo
+        imageBounds);
+      historicalOverlay.setMap(map);
+      
+      // get a new date (locale machine date time)
+var date = new Date();
+// get the date as a string
+var n = date.toDateString();
+// get the time as a string
+var time = date.toLocaleTimeString();
+
+// find the html element with the id of time
+// set the innerHTML of that element to the date a space the time
+document.getElementById('time').innerHTML = n + ' ' + time;
+             
+      // Display multiple markers on a map
+      var infoWindow = new google.maps.InfoWindow(), marker, i;
+      
+    // get some marker icons...  
+     var bf_image = 'https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png';
+     var g_image = 'https://maps.gstatic.com/mapfiles/ms2/micons/green.png';
+     var bl_image = 'https://maps.gstatic.com/mapfiles/ms2/micons/blue.png';
+     var r_image = 'https://maps.gstatic.com/mapfiles/ms2/micons/red.png';
+     var yel_image = 'http://maps.google.com/mapfiles/kml/paddle/ylw-blank.png';
+     var pur_image = 'http://maps.google.com/mapfiles/kml/paddle/purple-blank.png';
+     var org_image = 'http://maps.google.com/mapfiles/kml/paddle/orange-blank.png';
+     var winContent;
+   // get today's date & time
+     let today = new Date().toISOString().slice(0,-5); // slice off milliseconds
+     var diff = -30; // collect data from last 30 minutes
+     var startDateObj = new Date(); 
+     var endDateObj = new Date(startDateObj.getTime() + diff*60000).toISOString().slice(0,-5); // format for Beacon API
+     
+    // console.log("start: " + today); console.log("end: " + endDateObj); 
+      
+// Loop through our array of markers & place each one on the map  
+    for (i = 0; i < markers.length; i++) {  // loop through all sensors/locations and place markers
+            var position = new google.maps.LatLng(markers[i][1], markers[i][2]);
+            bounds.extend(position);
+         //   console.log('Time ' + pm25_nodata_time[i]); console.log('wTime ' + wind_nodata_time[i]);
+            marker = new google.maps.Marker({
+              position: position,
+              draggable: true,
+              label: {
+                text: markers[i][0]
+              },
+             // set marker color
+                          
+               icon: (function() {
+                // functions to calculate API from PM2.5 concentration      
+               
+                var pmval = pm25[i][2];  // assign color according to US AQI standard (modified per https://airnow.gov/index.cfm?action=aqibasics.aqi)
+                 if (pmval > 350) {
+                   aqiMess[i] = "Watch Out!";
+                   return pur_image;
+                  // newLabel = "AQI: HAZARDOUS";
+                   } else if (pmval > 250) {
+                    aqiMess[i] = "Hazardous";
+                   return pur_image;
+                  // newLabel = "AQI: VERY UNHEALTHY";
+                   } else if (pmval > 150) {
+                     aqiMess[i] = "Very Unhealthy";
+                     return pur_image;
+                   //   newLabel = "AQI: UNHEALTHY";
+                   } else if (pmval > 65) {
+                     aqiMess[i] = "Unhealthy";
+                     return r_image;
+                   //   newLabel = "AQI: UNHEALTHY FOR SOME";
+                   } else if (pmval > 40) {
+                     aqiMess[i] = "Unhealthy Some";
+                     return org_image;
+                  //   newLabel = "AQI: MODERATE";
+                   } else if (pmval > 15.5) {
+                     aqiMess[i] = "Moderate";
+                     return yel_image;
+                   } else {
+                     aqiMess[i] = "Good";
+                     return g_image;  //"Safe"
+                   //  newLabel = "AQI: GOOD";
+                   }
+                   
+                 })(), // note ',' following function!
+               
+              animation: google.maps.Animation.DROP,
+              
+              map: map,
+              
+              title: (function(){ if(markers[i][0] == 'BackpAQ' ) {
+                   return markers[i][0] + ' at ' + markers[i][5];   
+                      }
+                   else {
+                      return markers[i][0] + ' at ' + markers[i][7]; }
+                
+             })() // function 
+              
+            }),  // marker 
+                
+           // Allow each marker to have an info window    
+          google.maps.event.addListener(marker, 'click', (function(marker, i) {
+          return function() {
+         
+	       // fetch JSON data (PM2.5) from Thingspeak
+           $.getJSON("https://api.thingspeak.com/channels/" + markers[i][3] + markers[i][4] + markers[i][5] + markers[i][6], function(result){ 	
+            var m = result;
+            //console.log(m);
+            pm25[i] = Number(m.field2); // pm2.5 is in Field 2
+           if (pmCorrection == "LRAPA") { //  PM_Val_cf1 = 0.5 * PM_Val_cf1 -.68
+              pm25[i] = 0.5 * pm25[i] - 0.68;
+              //console.log(pm25[i]);
+            } else if (pmCorrection == "AQandU") { // PM_Val_cf1 = 0.778 * PM_Val_cf1 + 2.65;
+                 pm25[i] = 0.778 * pm25[i] + 2.65;
+                // console.log(pm25[i]);
+            }
+             AQI = aqiFromPM(pm25[i]);
+                console.log("AQI: ");
+                console.log(AQI);
+                var AQIDescription = getAQIDescription(AQI); //A short description of the provided AQI
+                console.log("AQI Descr: ");
+                console.log(AQIDescription);
+                var AQIMessage = getAQIMessage(AQI); // What the provided AQI means (a longer description)
+                console.log("AQI Mess: ");
+                console.log(AQIMessage);
+           }); 
+           
+           // fetch JSON "last_data_received" value for PM2.5 sensors
+           $.getJSON("https://api.thingspeak.com/channels/" + markers[i][3] + j_endPhrase1 + j_endPhrase2 + markers[i][6], function(result){
+	           
+	         var me = result;
+             //console.log(me);
+             pm25_nodata_time[i] = Number(me.last_data_age); // time since last data received (seconds)
+             //console.log('time ' + pm25_nodata_time[i]);
+             
+            });
+                   
+	        // format & load content for infowindow which appears after click    
+	     
+			      winContent = "<b>" + markers[i][0] + "</b>" + "<br><br><hr>" + "<b>" + "AQI:  "+ "</b>" +
+         "<font color = 'green'>" + AQI + "</font>" + "<br>" + "<b>" + "PM2.5:  "+ "</b>" + pm25[i] + "<br>" + "<b>" + "Data Source:  "+ "</b>" +
+         markers[i][8] + "<br>" + "<b>" + "Updated:  " +"</b>"+ today + "<hr>" + "<button onclick=" + displayPlot()+ ">See on Plot</button><br>";
+         	    
+         infoWindow.setContent(winContent); // load infowindow content
+            
+         infoWindow.open(map, marker); // load markers
+          };
+        
+      })(marker, i));
+
+     // Automatically center the map fitting all markers on the screen
+       map.fitBounds(bounds);
+       
+   } // add listener
+   
+ // Listen for Google Traffic click...   
+   google.maps.event.addDomListener(document.getElementById('trafficToggle'), 'click', toggleGTraffic);
+
+// Override our map zoom level once our fitBounds function runs (Make sure it only runs once)
+var boundsListener = google.maps.event.addListener((map), 'bounds_changed', function(event) {
+    this.setZoom(15);
+    google.maps.event.removeListener(boundsListener);
+});
+ 
+}  // for loop
+
+ </script>
+ <!-- Selct files to load. The `multiple` attribute lets users select multiple files. -->
+<input type="file" id="file-selector" multiple accept=".csv, .geojson, .kml">
+<script>
+  const fileSelector = document.getElementById('file-selector');
+  fileSelector.addEventListener('change', (event) => {
+    const fileList = event.target.files;
+    console.log(fileList);
+  });
+  
+ //  ----- begin highcharts code, borrowed from ThingSpeakMultichannel.html
+ 
+// converts date format from JSON
+function getChartDate(d) {
+    // get the data using javascript's date object (year, month, day, hour, minute, second)
+    // months in javascript start at 0, so remember to subtract 1 when specifying the month
+    // offset in minutes is converted to milliseconds and subtracted so that chart's x-axis is correct
+    return Date.UTC(d.substring(0,4), d.substring(5,7)-1, d.substring(8,10), d.substring(11,13), d.substring(14,16), d.substring(17,19)) - (myOffset * 60000);
+}
+function toggle(ele) {
+        toggle1(ele);
+        toggle2(ele);
+    }
+ function toggle1(ele) {
+    var cont = document.getElementById('chart-container');
+        cont.style.display = cont.style.display == 'none' ? 'block' : 'none'; 
+ }
+ function toggle2(ele) {
+   var bcont = document.getElementById('below chart');
+         bcont.style.display = bcont.style.display == 'block' ? 'none' : 'block';
+ }
+function closeDiv3()
+{
+document.getElementById('kmlprompt').style.visibility = "hidden";
+document.getElementById('screener').style.visibility = "hidden";
+}
+
+function getKMLLayer()
+{
+var cont = document.getElementById('chart-container');
+//  cont.style.display = cont.style.display == 'none' ? 'block' : 'none'; 
+document.getElementById('kmlprompt').style.visibility = "hidden";
+document.getElementById('screener').style.visibility = "hidden";
+
+    var kmlOptions = {
+        preserveViewport: false
+    };
+
+    if (kmlLayer) {
+        kmlLayer.setMap(null);
+    }
+
+    var url = trim(document.getElementById('layerLink').value);
+    kmlLayer = new google.maps.KmlLayer(url, kmlOptions);
+    kmlLayer.setMap(map);
+document.getElementById('layerLink').value = "";
+} //end addKML()
+
+function addKML() {
+    var kmlOptions = {
+        preserveViewport: false
+    };
+    if (kmlLayer) {
+        kmlLayer.setMap(null);
+    }
+    var url = document.getElementById('layerLink').value;
+    kmlLayer = new google.maps.KmlLayer(url, kmlOptions);
+    kmlLayer.setMap(map);
+} //end addKML()
+
+
+
+// user's timezone offset
+var myOffset = new Date().getTimezoneOffset();
+     // Hide all series, via 'Hide All' button.  Then user can click on serries name in legent to show series of interest.      
+function HideAll(){
+  for (var index=0; index<dynamicChart.series.length; index++)  // iterate through each series
+  { 
+    if (dynamicChart.series[index].name == 'Navigator')
+      continue;
+    dynamicChart.series[index].hide();
+    //window.console && console.log('Series Number:',index,' Name:',dynamicChart.series[index].name);
+  }
+  //});
+            
+}
+      
+      //  This is where the chart is generated.
+$(document).ready(function() 
+{
+ //Add Channel Load Menu
+ var menu=document.getElementById("Channel Select");
+ for (var channelIndex=0; channelIndex<channelKeys.length; channelIndex++)  // iterate through each channel
+ {
+   window.console && console.log('Name',channelKeys[channelIndex].name);
+   var menuOption =new Option(channelKeys[channelIndex].name,channelIndex);
+   menu.options.add(menuOption,channelIndex);
+ }
+ var last_date; // variable for the last date added to the chart
+ window.console && console.log('Testing console');
+ //make series numbers for each field
+ var seriesCounter=0
+ for (var channelIndex=0; channelIndex<channelKeys.length; channelIndex++)  // iterate through each channel
+  {
+    for (var fieldIndex=0; fieldIndex<channelKeys[channelIndex].fieldList.length; fieldIndex++)  // iterate through each channel
+      {
+        channelKeys[channelIndex].fieldList[fieldIndex].series = seriesCounter; 
+        seriesCounter++;
+      }
+  }
+ //make calls to load data from each channel into channelKeys array now
+ // draw the chart when all the data arrives, later asyncronously add history
+ for (var channelIndex=0; channelIndex<channelKeys.length; channelIndex++)  // iterate through each channel
+  {
+    channelKeys[channelIndex].loaded = false;  
+    loadThingSpeakChannel(channelIndex,channelKeys[channelIndex].channelNumber,channelKeys[channelIndex].key,channelKeys[channelIndex].fieldList);
+    
+  }
+ //window.console && console.log('Channel Keys',channelKeys);
+ 
+ // load the most recent 2500 points (fast initial load) from a ThingSpeak channel into a data[] array and return the data[] array
+ function loadThingSpeakChannel(sentChannelIndex,channelNumber,key,sentFieldList) {
+   var fieldList= sentFieldList;
+   var channelIndex = sentChannelIndex;
+   // get the Channel data with a webservice call
+ 	$.getJSON('https://api.thingspeak.com/channels/'+channelNumber+'/feed.json?&offset=0&results=2500;key='+key, function(data)
+   {
+	   // if no access
+	   if (data == '-1') {
+       $('#chart-container').append('This channel is not public.  To embed charts, the channel must be public or a read key must be specified.');
+       window.console && console.log('Thingspeak Data Loading Error');
+     }
+     for (var fieldIndex=0; fieldIndex<fieldList.length; fieldIndex++)  // iterate through each field
+     {
+       fieldList[fieldIndex].data =[];
+       for (var h=0; h<data.feeds.length; h++)  // iterate through each feed (data point)
+       {
+         var p = []//new Highcharts.Point();
+         var fieldStr = "data.feeds["+h+"].field"+fieldList[fieldIndex].field;
+		  	 var v = eval(fieldStr);
+ 		  	p[0] = getChartDate(data.feeds[h].created_at);
+	 	  	p[1] = parseFloat(v);
+	 	  	// if a numerical value exists add it
+	   		if (!isNaN(parseInt(v))) { fieldList[fieldIndex].data.push(p); }
+       }
+       fieldList[fieldIndex].name = eval("data.channel.field"+fieldList[fieldIndex].field);
+	   }
+     window.console && console.log('getJSON field name:',fieldList[0].name);
+     channelKeys[channelIndex].fieldList=fieldList;
+     channelKeys[channelIndex].loaded=true;
+     channelsLoaded++;
+     window.console && console.log('channels Loaded:',channelsLoaded);
+     window.console && console.log('channel index:',channelIndex);
+     if (channelsLoaded==channelKeys.length){createChart();}
+	 })
+   .fail(function() { alert('getJSON request failed! '); });
+ }
+ // create the chart when all data is loaded
+ function createChart() {
+	// specify the chart options
+	var chartOptions = {
+	  chart: 
+    {
+		  renderTo: 'chart-container',
+      zoomType:'y',
+			events: 
+      {
+        load: function() 
+        {
+				  if ('true' === 'true' && (''.length < 1 && ''.length < 1 && ''.length < 1 && ''.length < 1 && ''.length < 1)) 
+          {
+            // If the update checkbox is checked, get latest data every 15 seconds and add it to the chart
+						setInterval(function() 
+            {
+             if (document.getElementById("Update").checked)
+             {
+              for (var channelIndex=0; channelIndex<channelKeys.length; channelIndex++)  // iterate through each channel
+              {  
+               (function(channelIndex)
+               {
+                // get the data with a webservice call
+                $.getJSON('https://api.thingspeak.com/channels/'+channelKeys[channelIndex].channelNumber+'/feed/last.json?&offset=0&results=2500;key='+key, function(data)
+                { 
+                  for (var fieldIndex=0; fieldIndex<channelKeys[channelIndex].fieldList.length; fieldIndex++)
+                  {
+                    // if data exists
+                    var fieldStr = "data.field"+channelKeys[channelIndex].fieldList[fieldIndex].field;
+                    var chartSeriesIndex=channelKeys[channelIndex].fieldList[fieldIndex].series;
+                    if (data && eval(fieldStr)) 
+                    {
+                      var p = []//new Highcharts.Point();
+                      var v = eval(fieldStr);
+                      p[0] = getChartDate(data.created_at);
+                      p[1] = parseFloat(v);
+                      // get the last date if possible
+                      if (dynamicChart.series[chartSeriesIndex].data.length > 0) 
+                      { 
+                        last_date = dynamicChart.series[chartSeriesIndex].data[dynamicChart.series[chartSeriesIndex].data.length-1].x; 
+                      }
+                      var shift = false ; //default for shift
+                      // if a numerical value exists and it is a new date, add it
+                      if (!isNaN(parseInt(v)) && (p[0] != last_date)) 
+                      {
+                        dynamicChart.series[chartSeriesIndex].addPoint(p, true, shift);
+                      }   
+                    }
+                    //window.console && console.log('channelKeys:',channelKeys);
+                    //window.console && console.log('chartSeriesIndex:',chartSeriesIndex);
+                    //window.console && console.log('channel index:',channelIndex);
+                    //window.console && console.log('field index:',fieldIndex);
+                    //window.console && console.log('update series name:',dynamicChart.series[chartSeriesName].name);
+                    //window.console && console.log('channel keys name:',channelKeys[channelIndex].fieldList[fieldIndex].name);
+                  }
+                  
+                  
+                });
+               })(channelIndex);
+              }
+             }
+						}, 15000);
+					}
+				}
+			}
+		},
+		rangeSelector: {
+			buttons: [{
+				count: 30,
+				type: 'minute',
+				text: '30M'
+			}, {
+				count: 12,
+				type: 'hour',
+				text: '12H'
+      }, {
+				count: 1,
+				type: 'day',
+				text: 'D'
+      }, {
+				count: 1,
+				type: 'week',
+				text: 'W'
+      }, {
+				count: 1,
+				type: 'month',
+				text: 'M'
+      }, {
+				count: 1,
+				type: 'year',
+				text: 'Y'
+			}, {
+				type: 'all',
+				text: 'All'
+			}],
+			inputEnabled: true,
+			selected: 1
+		},
+    title: {
+			text: ''
+		},
+		plotOptions: {
+		  line: {
+        gapSize:5
+				//color: '#d62020'
+				//  },
+				//  bar: {
+				//color: '#d52020'
+				//  },
+				//  column: {
+			},
+			series: {
+			  marker: {
+				  radius: 2
+				},
+				animation: true,
+				step: false,
+        turboThrehold:1000,
+				borderWidth: 0
+			}
+		},
+    tooltip: {
+      valueDecimals: 1,
+      valueSuffix: 'ug/m3',
+      xDateFormat:'%Y-%m-%d<br/>%1:%M:%S %p'
+			// reformat the tooltips so that local times are displayed
+			//formatter: function() {
+      //var d = new Date(this.x + (myOffset*60000));
+      //var n = (this.point.name === undefined) ? '' : '<br/>' + this.point.name;
+      //return this.series.name + ':<b>' + this.y + '</b>' + n + '<br/>' + d.toDateString() + '<br/>' + d.toTimeString().replace(/\(.*\)/, "");
+			//}
+    },
+		xAxis: {
+		  type: 'datetime',
+      ordinal:false,
+      min: Date.UTC(2015,02,25),
+			dateTimeLabelFormats : {
+        hour: '%l %p',
+        minute: '%l:%M %p'
+      },
+      title: {
+        text: 'test'
+			}
+		},
+		yAxis: [{
+            title: {
+                text: 'Deg F'
+            },
+            id: 'T'
+    }, {
+            title: {
+                text: 'ug/m3'
+            },
+            opposite: true,
+            id: 'O'
+    }, {
+            title: {
+                text: '% H'
+            },
+            opposite: true,
+            id: 'H'    
+    }, {
+            title: {
+                text: 'Deg'
+            },
+            opposite: true,
+            id: 'D' 
+    }, {
+            title: {
+                text: 'Kn'
+            },
+            opposite: true,
+            id: 'S' 
+ }],
+		exporting: {
+		  enabled: true,
+      csv: {
+        dateFormat: '%d/%m/%Y %I:%M:%S %p'
+        }
+		},
+		legend: {
+		  enabled: true
+		},
+    navigator: {
+      baseSeries: 0,  //select which series to show in history navigator, First series is 0
+      series: {
+            includeInCSVExport: false
+        }
+		},    
+    series: []
+    //series: [{data:[[getChartDate("2013-06-16T00:32:40Z"),75]]}]      
+	};
+
+	// add all Channel data to the chart
+  for (var channelIndex=0; channelIndex<channelKeys.length; channelIndex++)  // iterate through each channel
+  {
+    for (var fieldIndex=0; fieldIndex<channelKeys[channelIndex].fieldList.length; fieldIndex++)  // add each field
+    {
+      window.console && console.log('Channel '+channelIndex+' field '+fieldIndex);
+      chartOptions.series.push({data:channelKeys[channelIndex].fieldList[fieldIndex].data,
+                                index:channelKeys[channelIndex].fieldList[fieldIndex].series,
+                                yAxis:channelKeys[channelIndex].fieldList[fieldIndex].axis,
+                                //visible:false,
+                              name: channelKeys[channelIndex].fieldList[fieldIndex].name});
+    }
+  }
+	// set chart labels here so that decoding occurs properly
+	//chartOptions.title.text = data.channel.name;
+	chartOptions.xAxis.title.text = 'Date';
+
+	// draw the chart
+  dynamicChart = new Highcharts.StockChart(chartOptions);
+
+  // update series number to account for the navigator series (The historical series at the bottom) which is the first series.
+  for (var channelIndex=0; channelIndex<channelKeys.length; channelIndex++)  // iterate through each channel
+  {
+    for (var fieldIndex=0; fieldIndex<channelKeys[channelIndex].fieldList.length; fieldIndex++)  // and each field
+    {
+      for (var seriesIndex=0; seriesIndex<dynamicChart.series.length; seriesIndex++)  // compare each series name
+      {
+        if (dynamicChart.series[seriesIndex].name == channelKeys[channelIndex].fieldList[fieldIndex].name)
+        {
+          channelKeys[channelIndex].fieldList[fieldIndex].series = seriesIndex;
+        }
+      }
+    }
+  }          
+  // add all history
+  //dynamicChart.showLoading("Loading History..." );
+  window.console && console.log('Channels: ',channelKeys.length);
+  for (var channelIndex=0; channelIndex<channelKeys.length; channelIndex++)  // iterate through each channel
+  {
+    window.console && console.log('channelIndex: ',channelIndex);
+    (function(channelIndex)
+      {
+        //load only 1 set of 8000 points
+        loadChannelHistory(channelIndex,channelKeys[channelIndex].channelNumber,channelKeys[channelIndex].key,channelKeys[channelIndex].fieldList,0,1); 
+      }
+    )(channelIndex);
+  }
+ }
+});
+      
+function loadOneChannel(){ 
+  // load a channel selected in the popUp menu.
+  var selectedChannel=document.getElementById("Channel Select");
+  var maxLoads=document.getElementById("Loads").value ;
+  var channelIndex = selectedChannel.selectedIndex;
+  loadChannelHistory(channelIndex,channelKeys[channelIndex].channelNumber,channelKeys[channelIndex].key,channelKeys[channelIndex].fieldList,0,maxLoads); 
+} 
+
+// load next 8000 points from a ThingSpeak channel and addPoints to a series
+function loadChannelHistory(sentChannelIndex,channelNumber,key,sentFieldList,sentNumLoads,maxLoads) {
+   var numLoads=sentNumLoads
+   var fieldList= sentFieldList;
+   var channelIndex = sentChannelIndex;
+   var first_Date = new Date();
+   if (typeof fieldList[0].data[0] != "undefined") first_Date.setTime(fieldList[0].data[0][0]+7*60*60*1000);//adjust for 7 hour difference from GMT (Zulu time)
+   else if (typeof fieldList[1].data[0] != "undefined") first_Date.setTime(fieldList[1].data[0][0]+7*60*60*1000);
+   else if (typeof fieldList[2].data[0] != "undefined") first_Date.setTime(fieldList[2].data[0][0]+7*60*60*1000);
+   else if (typeof fieldList[3].data[0] != "undefined") first_Date.setTime(fieldList[3].data[0][0]+7*60*60*1000);
+   else if (typeof fieldList[4].data[0] != "undefined") first_Date.setTime(fieldList[4].data[0][0]+7*60*60*1000);
+   else if (typeof fieldList[5].data[0] != "undefined") first_Date.setTime(fieldList[5].data[0][0]+7*60*60*1000);
+   else if (typeof fieldList[6].data[0] != "undefined") first_Date.setTime(fieldList[6].data[0][0]+7*60*60*1000);
+   else if (typeof fieldList[7].data[0] != "undefined") first_Date.setTime(fieldList[7].data[0][0]+7*60*60*1000);
+   var end = first_Date.toJSON();
+   window.console && console.log('earliest date:',end);
+   window.console && console.log('sentChannelIndex:',sentChannelIndex);
+   window.console && console.log('numLoads:',numLoads);
+   // get the Channel data with a webservice call
+ 	$.getJSON('https://api.thingspeak.com/channels/'+channelNumber+'/feed.json?&offset=0&results=2500;key='+key, function(data)
+   {
+	   // if no access
+	   if (data == '-1') {
+       $('#chart-container').append('This channel is not public.  To embed charts, the channel must be public or a read key must be specified.');
+       window.console && console.log('Thingspeak Data Loading Error');
+     }
+     for (var fieldIndex=0; fieldIndex<fieldList.length; fieldIndex++)  // iterate through each field
+     {
+       //fieldList[fieldIndex].data =[];
+       for (var h=0; h<data.feeds.length; h++)  // iterate through each feed (data point)
+       {
+         var p = []//new Highcharts.Point();
+         var fieldStr = "data.feeds["+h+"].field"+fieldList[fieldIndex].field;
+		  	 var v = eval(fieldStr);
+ 		  	p[0] = getChartDate(data.feeds[h].created_at);
+	 	  	p[1] = parseFloat(v);
+	 	  	// if a numerical value exists add it
+	   		if (!isNaN(parseInt(v))) { fieldList[fieldIndex].data.push(p); }
+       }
+       fieldList[fieldIndex].data.sort(function(a,b){return a[0]-b[0]});
+       dynamicChart.series[fieldList[fieldIndex].series].setData(fieldList[fieldIndex].data,false);
+       //dynamicChart.series[fieldList[fieldIndex].series].addPoint(fieldList[fieldIndex].data,false);
+       //fieldList[fieldIndex].name = eval("data.channel.field"+fieldList[fieldIndex].field);
+       //window.console && console.log('data added to series:',fieldList[fieldIndex].series,fieldList[fieldIndex].data);
+	   }
+     channelKeys[channelIndex].fieldList=fieldList;
+     dynamicChart.redraw()
+     window.console && console.log('channel index:',channelIndex);
+     numLoads++;
+     if (numLoads<maxLoads) {loadChannelHistory(channelIndex,channelNumber,key,fieldList,numLoads,maxLoads);}
+	 });
+}
+</script>
+ </head>
+  
+  <body>
+
+    <div id="map_wrapper">
+	    <div id="map_canvas" class = "mapping"> </div>
+      <div id='time'></div>
+     <div id = kmlprompt style="display: none"; >
+    <div id = closer style="display: none"; onclick = 'closeDiv3()'>X</div><br><br>
+       Enter a url for a KML layer that you would like to add to the map.<br>(ie. https://publicURL.kml )<br><br>
+      <input type = text name = layerLink id = layerLink style="display: none"; ><br><br>
+      <input type = button name = kmllayerbutton id = kmllayerbutton style="display: none"; onclick = 'getLayer()' value = 'Get Layer'><br><br>
+    </div>
+    </div>
+    <div id="floating-panel"> 
+      <h3>BackpAQ Community Sensor Map V0.55</h3>
+      <button id ="trafficToggle">Toggle Traffic Layer</button>
+      <button onclick="togglePollutionSources()">Toggle CARB Pollution Sources</button>
+      <button onclick="getKMLLayer()">Display KML Layer</button>
+      <button onclick="displayTrack()">Display Track</button>
+      <input type="button" value="Show Plot" id="bt" onclick="toggle(this)">
+      <input type="radio" name="None" id="no-choice" onclick="checkRadio(name)"><label>None</label>
+      <input type="radio" name="LRAPA" id="LRAPA-choice" onclick="checkRadio(name)"><label>LRAPA</label>
+      <input type="radio" name="AQandU" id="AQandU-choice" onclick="checkRadio(name)"><label>AQandU</label>
+    </div>
+    <div id="info-box">
+    </div>
+    <div id="chart-container" style="height: 600px;display:none;"><br>
+      Highstock Chart Here<br>
+    </div>
+    <div id="below chart"> <button style="width: 89px; margin-top: -18px; display:none;" value="Hide All"
+        name="Hide All Button"
+        onclick="HideAll();">Hide All</button><button style="width: 162px; margin-top: -18px;" value="Load More Data"
+        name="Load More Data"
+        onclick="loadOneChannel();">Load
+        More Historical Data </button>
+      <select id="Channel Select">
+      </select>
+      <select id="Loads">
+        <option value="1">1 Load</option>
+        <option value="2">2 Loads</option>
+        <option value="3">3 Loads</option>
+        <option value="4">4 Loads</option>
+        <option value="5" selected="selected">5 Loads</option>
+        <option value="6">6 Loads</option>
+        <option value="7">7 Loads</option>
+        <option value="8">8 Loads</option>
+        <option value="9">9 Loads</option>
+        <option value="10">10 Loads</option>
+        <option value="15">15 Loads</option>
+        <option value="20">20 Loads</option>
+        <option value="25">25 Loads</option>
+        <option value="30">30 Loads</option>
+        <option value="40">40 Loads</option>
+        <option value="50">50 Loads</option>
+      </select>
+      <input id="Update" name="Update" type="checkbox"><span style="font-family: Lucida Grande;">Update
+        Chart</span> <span id="Latency" style="font-family: Lucida Grande;">(Latency)</span>
+    </div>
+    
+    <div id = screener></div>
+  </body>
+</html>
