@@ -8,28 +8,3 @@ var markers = [
         ];
 
  
-var infoWindowContent = [
-     
-    ['<div class="info_content">' +
-    '<h3>' + markers[0][0] +'</h3>' +
-    '<p>'+markers[0][8] + markers[0][0] + ' is located at ' + markers[0][7] + '.</p>' + '</div>'],
-    
-    ['<div class="info_content">' +
-    '<h3>' + markers[1][0]+ '</h3>' +
-    '<p>'+markers[1][8] + markers[1][0] + ' is located at  ' + markers[1][7] + '.</p>' +
-    '</div>'],
-   
-    ['<div class="info_content">' +
-    '<h3>' + markers[2][0] + '</h3>' +
-    '<p>'+markers[2][8] + markers[2][0] + ' is located at  ' + markers[2][7] + '</p>' +
-    '</div>'],
-    
-    ['<div class="info_content">' +
-    '<h3>' + markers[3][0] + '</h3>' +
-    '<p>'+markers[3][8] + markers[3][0] + ' is located at  ' + markers[3][7] + '</p>' +
-    '</div>'],  
-    
-    ['<div class="info_content">' +
-    '<h3>' + markers[4][0] + '</h3>' +
-    '<p>'+markers[4][8] + markers[4][0] + ' is located at  ' + markers[4][7] + '</p>' +
-    '</div>']           ];
