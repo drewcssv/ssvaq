@@ -975,7 +975,7 @@ files2 = [
             "name": "EPSG:4269"
         }
     }
-}
+},
 {
     "type": "FeatureCollection",
     "bbox": [
@@ -1472,7 +1472,7 @@ files2 = [
             "name": "EPSG:4269"
         }
     }
-}
+},
 {
     "type": "FeatureCollection",
     "bbox": [
