@@ -1,4 +1,4 @@
-const files = [
+files2 = [
 {
     "type": "FeatureCollection",
     "bbox": [
