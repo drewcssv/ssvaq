@@ -1,4 +1,4 @@
-const files2 = [
+export const files2 = [
 {
     "type": "FeatureCollection",
     "bbox": [
