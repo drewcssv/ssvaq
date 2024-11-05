@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acterra NO2 and PM2.5 Concentration Chart</title>
+  
+    <script src="https://code.highcharts.com/stock/highstock.js"></script>
+	<script src="https://code.highcharts.com/stock/modules/exporting.js"></script>
+	<script src="https://code.highcharts.com/highcharts-more.js"></script>
+	<script src="https://code.highcharts.com/modules/data.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+</head>
+<body>
+
+<div id="container" style="width:80%; height:400px;"></div>
+
+<script>
+
+  var dataMetric1 = 'no2Conc1HourMean';
+  var dataMetric2 = 'pm2_5ConcMass1HourMean';
+
+  getSensorData("DUQNX2363"); // sensor index = 811 Smith Rd
+
+   function getSensorData(data_source_ids) {
+    let my_api_read_key = 'u7JGpnsQK9pM6XO52v5gxiP63j7EYUTw0nZzMsk5';
+    let my_org = 'acterra';
+    let my_url = 'https://clarity-data-api.clarity.io/v2/recent-datasource-measurements-query';
+
+    fetch(my_url, {
+        method: "POST",
+        body: JSON.stringify({
+        	"format": "json-long",
+            "org": my_org,
+            "datasourceIds": [data_source_ids],
+            "outputFrequency": "hour",
+            "startTime": "2024-08-17T01:00:00+00:00"
+        }),
+        headers: {
+            "x-api-key": my_api_read_key,
+            "Content-type": "application/json; charset=UTF-8"
+        }
+    })
+    .then(response => response.json())
+    .then(results => {
+        const no2Measurements = results.data
+            .filter(data => data.metric === dataMetric1)
+            .map(data => [new Date(data.time).getTime(), data.value]);
+
+        const pm25Measurements = results.data
+            .filter(data => data.metric === dataMetric2)
+            .map(data => [new Date(data.time).getTime(), data.value]);
+
+        renderChart(no2Measurements, pm25Measurements);
+    })
+    .catch(error => {
+        console.error('Error fetching sensor data:', error);
+    });
+}
+
+function renderChart(no2Data, pm25Data) {
+    Highcharts.stockChart('container', {
+        chart: {
+            type: 'line',
+            zoomType: 'x'
+        },
+        rangeSelector: {
+            selected: 1
+        },
+        title: {
+            text: 'NO2 and PM2.5 Concentration Over Time'
+        },
+        xAxis: {
+            type: 'datetime',
+            title: {
+                text: 'Date and Time'
+            }
+        },
+        yAxis: [{
+            labels: {
+                align: 'right',
+                x: -3
+            },
+            plotLines: [{
+	
+							value: 9,
+							color: '#52cc50',
+							width: 3,
+							dashStyle: 'longdashdot',
+                            zIndex : 3,
+							label: {
+								text: 'Good',
+								x: 0,
+								y: 15,
+								style: {
+                                    color: '#52cc50',
+                                    fontWeight: 'bold'
+                                }
+
+							}
+						}, {
+							
+							value: 35,
+							color: '#f0ea41',
+							width: 3,
+							dashStyle: 'longdashdot',
+                            zIndex : 3,
+							label: {
+								text: 'Moderate',
+								x: 0,
+								y: 15,
+								style: {
+                                    color: '#f0ea41',
+                                    fontWeight: 'bold'
+                                }
+
+							}
+						}, {
+							
+							value: 55,
+							color: '#f0b641',
+							width: 3,
+							dashStyle: 'longdashdot',
+                            zIndex : 3,
+							label: {
+								text: 'Unhealthy for Sensitive',
+								x: 0,
+								y: 15,
+								style: {
+                                    color: '#f0b641',
+                                    fontWeight: 'bold'
+                                }
+							}
+						}, {
+							
+							value: 125,
+							color: '#f04141',
+							width: 3,
+							dashStyle: 'longdashdot',
+                            zIndex : 3,
+							label: {
+								text: 'Unhealthy',
+								x: 0,
+								y: 15,
+								style: {
+                                    color: '#f04141',
+                                    fontWeight: 'bold'
+                                }
+
+							}
+						}, {
+						
+							value: 225,
+							color: '#7D2181',
+							width: 3,
+							dashStyle: 'longdashdot',
+                            zIndex : 3,
+							label: {
+								text: 'Very Unhealthy',
+								x: 0,
+								y: 15,
+								style: {
+                                    color: '#7D2181',
+                                    fontWeight: 'bold'
+                                }
+
+							}
+								
+						}],
+            title: {
+                text: 'PM2.5 (ug/m3)'
+            },
+            height: '60%',
+            lineWidth: 2,
+            resize: {
+                enabled: true
+            }
+        }, {
+            labels: {
+                align: 'right',
+                x: -3
+            },
+            title: {
+                text: 'NO2 (ppb)'
+            },
+            top: '65%',
+            height: '35%',
+            offset: 0,
+            lineWidth: 2
+        }],
+        tooltip: {
+            valueDecimals: 2,
+            xDateFormat: '%m-%d-%Y %H:%M:%S',
+        },
+        navigator: {
+            adaptToUpdatedData: false,
+            series: {
+                id: 'navigator',
+                data: pm25Data
+            }
+        },
+        series: [{
+            name: 'PM2.5 Concentration',
+            data: pm25Data,
+            yAxis: 0  // Assign to the first yAxis (upper axis)
+        }, {
+            name: 'NO2 Concentration',
+            data: no2Data,
+            yAxis: 1  // Assign to the second yAxis (lower axis)
+        }]
+    });
+}
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Test of Clarity API </title>
+	</head>
+	<body>
+	
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+	<script>
+	
+	
+	
+	getSensorData('146592'); // sensor index = Colo Jackson St
+	
+	
+     
+
+function getSensorData(sensor_index) {
+	
+	// https://api.purpleair.com/v1/sensors/146592/history?start_timestamp=20240221&end_timestamp=20240323&fields=pm2.5_alt
+	
+	let startEndTimes = "&start_timestamp=2024-07-01T16:38:33Z&end_timestamp=2024-07-10T16:38:33Z";
+    // fields: ["time_stamp", "humidity", "temperature", "pm2.5_alt", "pm1.0_atm", "pm10.0_atm"] 
+	let fields = "&fields=pm2.5_alt, pm1.0_atm, pm10.0_atm, temperature, humidity";
+	let avg = "&average = 60";
+	
+	let my_api_read_key = 'u7JGpnsQK9pM6XO52v5gxiP63j7EYUTw0nZzMsk5';
+	let my_org = 'acterrOUK5';
+	
+  
+   // let my_url = 'https://clarity-data-api.clarity.io/v2/measurements?startTime=2019-05-30&code=' + my_api_read_key + '&limit=1000';
+    let my_url = 'https://clarity-data-api.clarity.io/v2/datasources?org=' + my_org;
+
+    // We use the Fetch API to send our request and return the response.
+    fetch (my_url, {
+        headers: {
+            'X-API-KEY': my_api_read_key
+        }
+    })
+    .then(response => response.json())  
+    .then(results => {
+    	
+    	console.log(results);
+    	
+    	//console.log("Humidity: " + results.data[0][2]); // double array
+    	
+    });
+}
+
+
+	</script>
+		
+	</body>
+</html>

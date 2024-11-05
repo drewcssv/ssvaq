@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Vaisala API Test 1</title>
+	</head>
+	<body>
+	<script>
+		
+const url = "https://api.eu.platform.xweather.com/measurements/urn:dev:ops:16961-AQT530-U4130410?start_time=2024-10-12T10:00:00Z&end_time=2024-10-12T10:30:00Z";
+
+const headers = {
+  'Accept': 'application/json',
+  'X-API-KEY': 'aur_prod_01J9WRDBAJ8NXQBM57QR5AMDNQ.qkW2E3tUeM7agrbmU-C0CtQ2qi7xjxDE0Pe26LekEgu7EQX8Xiy4krhVbKq3kaIV'
+};
+
+fetch(url, {
+  method: 'GET',
+  headers: headers
+})
+.then(response => response.json())  // Parse the response as JSON
+.then(data => {
+  data.forEach(item => {
+    console.log("Source ID:", item.sourceId);
+    console.log("Observed Time:", item.observedTime);
+    
+    // Processing measurement type
+    const measurementType = item.measurementType;
+    console.log("Parameter:", measurementType.parameter);
+    console.log("Unit:", measurementType.unit);
+    console.log("Statistic:", measurementType.statistic);
+    console.log("Period:", measurementType.period);
+    console.log("Height:", measurementType.height);
+    console.log("Data Level:", measurementType.dataLevel);
+    
+    // Value
+    console.log("Value:", item.value);
+    
+    // Processing quality information
+    const quality = item.quality;
+    console.log("Quality Value:", quality.qualityValue);
+    console.log("Check Level:", quality.checkLevel);
+    console.log("Checked At:", quality.checkedAt);
+    
+    // Loop through quality reasons
+    quality.qualityReasons.forEach(reason => {
+      console.log("Quality Reason Name:", reason.name);
+      console.log("Quality Reason Description:", reason.description);
+    });
+    
+    console.log('-----------------------------------');
+  });
+})
+.catch(error => console.error('Error:', error));
+
+	</script>	
+				
+		
+		
+	</body>
+</html>

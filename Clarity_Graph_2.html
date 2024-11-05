@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NO2 Concentration Chart</title>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+</head>
+<body>
+
+<div id="container" style="width:100%; height:400px;"></div>
+
+<script>
+
+getSensorData("DUQNX2363"); // sensor index = 811 Smith Rd
+
+
+    function getSensorData(data_source_ids) {
+        let my_api_read_key = 'u7JGpnsQK9pM6XO52v5gxiP63j7EYUTw0nZzMsk5';
+        let my_org = 'acterra';
+        let my_url = 'https://clarity-data-api.clarity.io/v2/recent-datasource-measurements-query';
+
+        fetch(my_url, {
+            method: "POST",
+            body: JSON.stringify({
+                "org": my_org,
+                "datasourceIds": [data_source_ids],
+                "outputFrequency": "hour"
+            }),
+            headers: {
+                "x-api-key": my_api_read_key,
+                "Content-type": "application/json; charset=UTF-8"
+            }
+        })
+        .then(response => response.json())
+        .then(results => {
+            const no2Measurements = results.data
+                .filter(data => data.metric === 'no2Conc1HourMean')
+                .map(data => [new Date(data.time).getTime(), data.value]);
+                
+            const PMMeasurements = results.data
+                .filter(data => data.metric === 'pm2_5ConcMass1HourMean')
+                .map(data => [new Date(data.time).getTime(), data.value]);  
+
+            renderChart(no2Measurements. PMMeasurements);
+        })
+        .catch(error => {
+            console.error('Error fetching sensor data:', error);
+        });
+    }
+
+    function renderChart(data1, data2) {
+        Highcharts.chart('container', {
+            chart: {
+                type: 'line'
+            },
+            title: {
+                text: 'PM, NO2 Concentrations Over Time'
+            },
+            xAxis: {
+                type: 'datetime',
+                title: {
+                    text: 'Time'
+                }
+            },
+            yAxis: {
+                title: {
+                    text: 'Concentration (µg/m³)'
+                }
+            },
+            series: [{
+                name: 'NO2 Concentration',
+                data: data1
+               },
+                name: 'PM Concentration',
+                data: data2
+               }]
+        });
+    }
+
+    // Call the function with your data source ID
+   // getSensorData('DUQNX2363');
+</script>
+
+</body>
+</html>
